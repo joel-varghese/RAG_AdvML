@@ -1,3 +1,12 @@
+CREATE TABLE IF NOT EXISTS sports_videos (
+    id SERIAL PRIMARY KEY,
+    video_link TEXT,
+    title TEXT,
+    description TEXT
+);
+
+
+
 INSERT INTO sports_videos (video_link, title, description) VALUES
 ('https://www.youtube.com/watch?v=abcd1234', 'Epic Soccer Goals Compilation', 'A collection of the best goals scored in football history.'),
 ('https://www.youtube.com/watch?v=efgh5678', 'NBA Top 10 Dunks of All Time', 'A countdown of the most jaw-dropping dunks in NBA history.'),
