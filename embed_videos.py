@@ -51,7 +51,7 @@ for row in rows:
     client = openai.AzureOpenAI(
         api_version="2024-03-01-preview",
         azure_endpoint="https://cog-xw55anu4yrb3k.openai.azure.com",
-        api_key="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",
+        api_key="",
     )
 
     response = client.embeddings.create(
