@@ -10,11 +10,11 @@ Simple RAG
 """
 
 import os
-
-import numpy as np
 import psycopg2
+import torch
+from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
-from pgvector.psycopg2 import register_vector
+
 
 load_dotenv(override=True)
 DBUSER = os.environ["DBUSER"]
@@ -32,9 +32,58 @@ cur = conn.cursor()
 cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
 # get question from user
-question = "ball"
+question = "winning the match"
 
-cur.execute("SELECT * FROM sports_videos WHERE title LIKE %s OR description LIKE %s", (f"%{question}%", f"%{question}%"))
+
+model_name = "intfloat/e5-small-v2"
+device = torch.device("cpu")
+model = SentenceTransformer(model_name).to(device)
+
+
+def get_stuff(text):
+    with torch.no_grad():
+        embedding = model.encode(text, convert_to_tensor=True, device=device)
+        embedding = embedding.cpu().numpy().tolist()
+    return embedding
+
+
+# cur.execute(
+#     "SELECT * FROM sports_videos WHERE title LIKE %s OR description LIKE %s", (f"%{question}%", f"%{question}%")
+# )
+
+# results = cur.fetchall()
+# print(results)
+
+# Use question to serch Postgres table using buil-in full text search to_tsvector
+
+# cur.execute(
+#     "SELECT * FROM sports_videos WHERE to_tsvector(title || ' ' || description) @@ to_tsquery(%s) LIMIT 10", (question,)
+# )
+
+# results = cur.fetchall()
+# for result in results:
+#     print(result[2])
+
+# cur.execute(
+#     """
+# SELECT id, title, description
+#             FROM sports_videos, plainto_tsquery('english', %(query)s) query
+#             WHERE to_tsvector('english', description) @@ query
+#             ORDER BY ts_rank_cd(to_tsvector('english', description), query) DESC
+#             LIMIT 10
+# """,
+#     {"query": question},
+# )
 
 results = cur.fetchall()
-print(results)
+for result in results:
+    print(result[1])
+
+# Do a Postgres vector embedding search on embedding column with cosine operator
+
+embedding = get_stuff(question)
+
+cur.execute("SELECT id, title, description FROM sports_videos ORDER BY embedding <-> %s LIMIT 10", (embedding,))
+results = cur.fetchall()
+for result in results:
+    print(result[2])
