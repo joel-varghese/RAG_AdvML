@@ -11,7 +11,9 @@ Simple RAG
 
 import os
 import psycopg2
+import numpy as np
 import torch
+from pgvector.psycopg2 import register_vector
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
@@ -29,10 +31,11 @@ if DBHOST != "localhost":
 conn = psycopg2.connect(database=DBNAME, user=DBUSER, password=DBPASS, host=DBHOST, sslmode=DBSSL)
 conn.autocommit = True
 cur = conn.cursor()
+register_vector(conn)
 cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
 # get question from user
-question = "winning the match"
+question = "show me some of the best soccer games streaming now"
 
 
 model_name = "intfloat/e5-small-v2"
@@ -75,13 +78,14 @@ def get_stuff(text):
 #     {"query": question},
 # )
 
-results = cur.fetchall()
-for result in results:
-    print(result[1])
+# results = cur.fetchall()
+# for result in results:
+#     print(result[1])
 
 # Do a Postgres vector embedding search on embedding column with cosine operator
 
 embedding = get_stuff(question)
+embedding = np.array(embedding)
 
 cur.execute("SELECT id, title, description FROM sports_videos ORDER BY embedding <-> %s LIMIT 10", (embedding,))
 results = cur.fetchall()
