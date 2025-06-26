@@ -87,7 +87,42 @@ def get_stuff(text):
 embedding = get_stuff(question)
 embedding = np.array(embedding)
 
-cur.execute("SELECT id, title, description FROM sports_videos ORDER BY embedding <-> %s LIMIT 10", (embedding,))
+# cur.execute("SELECT id, title, description FROM sports_videos ORDER BY embedding <-> %s LIMIT 10", (embedding,))
+# results = cur.fetchall()
+# for result in results:
+#     print(result[2])
+
+cur.execute(
+    """
+WITH semantic_search AS (
+    SELECT id, RANK () OVER (ORDER BY embedding <=> %(embedding)s) AS rank
+    FROM sports_videos
+    ORDER BY embedding <=> %(embedding)s
+    LIMIT 20
+),
+keyword_search AS (
+    SELECT id, RANK () OVER (ORDER BY ts_rank_cd(to_tsvector('english', title || ' ' || description), query) DESC)
+    FROM sports_videos, plainto_tsquery('english', %(query)s) query
+    WHERE to_tsvector('english', title || ' ' || description) @@ query
+    ORDER BY ts_rank_cd(to_tsvector('english', title || ' ' || description), query) DESC
+    LIMIT 20
+)
+SELECT
+    COALESCE(semantic_search.id, keyword_search.id) AS id,
+    COALESCE(1.0 / (%(k)s + semantic_search.rank), 0.0) +
+    COALESCE(1.0 / (%(k)s + keyword_search.rank), 0.0) AS score
+FROM semantic_search
+FULL OUTER JOIN keyword_search ON semantic_search.id = keyword_search.id
+ORDER BY score DESC
+LIMIT 5
+""",
+    {"query": question, "embedding": embedding, "k": 60},
+)
+
 results = cur.fetchall()
-for result in results:
-    print(result[2])
+
+ids = [result[0] for result in results]
+cur.execute("SELECT id, title, description FROM sports_videos WHERE id = ANY(%s)", (ids,))
+results = cur.fetchall()
+for result in results[0:2]:
+    print(result[1], result[2])
